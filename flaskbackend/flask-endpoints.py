@@ -23,15 +23,21 @@ CORS(app, origins="http://localhost:3000")
 movies = pd.read_csv('./movies.csv')
 
 # features of the data we are using to recommend the movies these data features from the data set are captured and pre - processing to recommend the movies
+# data_features = ['keywords', 'cast', 'tagline', 'genres', 'director', 'title']
+
+# # filling the missing values with empty string if any missing values are present in the data set
+# movies[data_features] = movies[data_features].fillna('')
+
+# combined_features = movies['genres'] + ' ' + movies['keywords'] + ' ' + \
+#     movies['tagline'] + ' ' + movies['cast'] + ' ' + \
+#     movies['director'] + ' ' + \
+#     movies['title']  # combining the features of the data set to process and recommend the movies
+
 data_features = ['keywords', 'cast', 'tagline', 'genres', 'director', 'title']
-
-# filling the missing values with empty string if any missing values are present in the data set
 movies[data_features] = movies[data_features].fillna('')
+combined_features = movies['genres'] + ' ' + movies['keywords'] + ' ' + movies['tagline'] + ' ' + \
+                    movies['cast'] + ' ' + movies['director'] + ' ' + movies['title']
 
-combined_features = movies['genres'] + ' ' + movies['keywords'] + ' ' + \
-    movies['tagline'] + ' ' + movies['cast'] + ' ' + \
-    movies['director'] + ' ' + \
-    movies['title']  # combining the features of the data set to process and recommend the movies
 
 
 # for sentimental model we use
@@ -40,17 +46,21 @@ combined_features = movies['genres'] + ' ' + movies['keywords'] + ' ' + \
 # TF-IDF is a numerical statistic that reflects how important a word is to a document in a collection or corpus
 # It assigns a weight to each word based on its frequency in the document and its rarity in the entire corpus
 # This vectorization process helps in representing the textual features of the data in a numerical format that can be used for further analysis
+# vectorizer = TfidfVectorizer()
+# vectorizing_features = vectorizer.fit_transform(combined_features)
+# similar = cosine_similarity(vectorizing_features, vectorizing_features)
+
+
 vectorizer = TfidfVectorizer()
 vectorizing_features = vectorizer.fit_transform(combined_features)
-
 similar = cosine_similarity(vectorizing_features, vectorizing_features)
+
 model = AutoModelForSequenceClassification.from_pretrained(
     "Kaludi/Reviews-Sentiment-Analysis")  # classification of pre trained model of kaludi reviews sentiment analysis
 tokenizer = AutoTokenizer.from_pretrained("Kaludi/Reviews-Sentiment-Analysis")
 
 
 def search_movie(api_key, movie_title):
-    # searching the movie using the api key and movie title that is recommended by model
     url = f'https://api.themoviedb.org/3/search/movie'
     params = {
         'api_key': api_key,
@@ -59,52 +69,45 @@ def search_movie(api_key, movie_title):
         'include_adult': False
     }
     response = requests.get(url, params=params)
-    data = response.json()  # converting the response to json object
-    return data
+    data = response.json()
+    if data['results']:
+        return data['results'][0]
+    return {}
 
 
 # recommending the movies based on the user input model function to recommend the movies
-def get_recommended_movies(user_movies, recommendations=5):
-    recommended_movies = []  # empty list to store the recommended movies
+def get_recommended_movies(user_movies, user_genres=None, recommendations=5):
+    recommended_movies = []
+    user_movie_indices = []
 
-    user_movie_indices = []  # empty list to store the indices of the user movies
-
-    for movie_name in user_movies:  # iterating through the user movies that are input by the user coming as response from the frontend
-
-        find_closest = difflib.get_close_matches(  # finding the closest match of the movie name using the difflib library
-            movie_name, movies['title'].tolist(), n=1)  # getting the closest match of the movie name from the data set
-
-        if find_closest:  # if the closest match is found
-            # getting the closest match of the movie name from the data set
+    for movie_name in user_movies:
+        find_closest = difflib.get_close_matches(movie_name, movies['title'].tolist(), n=1)
+        if find_closest:
             nearest = find_closest[0]
-
-            # getting the index of the movie name from the data set using the closest match
             index = movies[movies.title == nearest].index[0]
-            # appending the index of the movie name to the user movie indices list to recommend the movies
             user_movie_indices.append(index)
 
-    # calculating the average similarity scores of the user movies to recommend the movies between the user movies and the data set
     avg_similarity_scores = similar[user_movie_indices].mean(axis=0)
 
-    # iterating through the average similarity scores of the user movies to recommend the movies
+    genre_filtered_indices = []
+    if user_genres:
+        for idx, row in movies.iterrows():
+            movie_genres = row['genres'].split()
+            if any(genre in user_genres for genre in movie_genres):
+                genre_filtered_indices.append(idx)
+
     for idx, score in sorted(enumerate(avg_similarity_scores), key=lambda x: x[1], reverse=True):
-        # getting the title of the movie from the data set using the index of the movie
-        title_from_index = movies.iloc[idx]['title']
-        # if the title of the movie is not in the user movies and not in the recommended movies
-        if title_from_index not in user_movies and title_from_index not in recommended_movies:
-            # appending the title of the movie to the recommended movies list to recommend the movies
-            recommended_movies.append(title_from_index)
-            # if the length of the recommended movies is greater than or equal to the recommendations 5 is defined up there
-            if len(recommended_movies) >= recommendations:
-                break
+        if not user_genres or idx in genre_filtered_indices:
+            title_from_index = movies.iloc[idx]['title']
+            if title_from_index not in user_movies and title_from_index not in recommended_movies:
+                recommended_movies.append(title_from_index)
+                if len(recommended_movies) >= recommendations:
+                    break
 
-    return recommended_movies  # returning the recommended movies to the user
-
+    return recommended_movies
 
 client = OpenAI(
     # openai api key to interact with the openai api to get the responses from the model
-    api_key = "sk-proj-tDVYouFq7PhaChxdtnggT3BlbkFJYtuAeq1vuFeowFO8j30f"
-
 )
 
 
@@ -181,17 +184,14 @@ def parse_questions(questions_string):
 
 
 # endpoint for the recommendations
-@app.route('/recommend_movies', methods=['POST']) # creating a route for the recommendations
-def recommend_movies(): # function to recommend the movies 
-    user_movies = request.json.get('user_movies', []) # getting the user movies from the request coming from the frontend
-    recommended_movies = get_recommended_movies(user_movies) # getting the recommended movies based on the user movies using the function get_recommended_movies of the model
-    api_key = 'b93a64480573ce5248c28b200d79d029' #tmdb api key to interact with the api to get the movie data like getting ID, Title, Overview, Poster, Release Date, Genres, etc.
-    recommended_movies_data = {} # empty dictionary to store the recommended movies data
-    for movie_title in recommended_movies: # iterating through the recommended movies to get the movie data 
-        movie_data = search_movie(api_key, movie_title) # getting the movie data using the api key and movie title that is recommended by model
-        recommended_movies_data[movie_title] = movie_data # appending the movie data to the recommended movies data dictionary to recommend the movies
-    print(len(recommended_movies_data)) # printing the length of the recommended movies data for checking
-    return jsonify({'recommended_movies': recommended_movies_data}) # returning the recommended movies data to the user in json format
+@app.route('/recommend_movies', methods=['POST'])
+def recommend_movies():
+    user_movies = request.json.get('user_movies', [])
+    user_genres = request.json.get('user_genres', [])
+    recommended_movies = get_recommended_movies(user_movies, user_genres)
+    api_key = 'b93a64480573ce5248c28b200d79d029'
+    recommended_movies_data = {movie_title: search_movie(api_key, movie_title) for movie_title in recommended_movies}
+    return jsonify({'recommended_movies': recommended_movies_data})
 
 
 # end point for the sentimental analysis
