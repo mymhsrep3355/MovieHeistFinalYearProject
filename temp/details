@@ -1,0 +1,105 @@
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { HiChevronLeft } from "react-icons/hi";
+import { FaPlay } from "react-icons/fa";
+import { LazyLoadImage } from "react-lazy-load-image-component";
+import "react-lazy-load-image-component/src/effects/blur.css";
+import ReviewForm from "../ReviewForm";
+import slugify from "react-slugify";
+import { key, RootURL } from "../../utils/FetchMovies";
+import axios from "axios";
+// import axios from "axios";
+
+const MovieDetails = () => {
+  const { id } = useParams();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [moviedetail, setMoviedetail] = useState([]);
+  const [castdata, setCastdata] = useState([]);
+  const [moviegenres, setMoviegenres] = useState([]);
+  const [video, setVideo] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+
+  useEffect(() => {
+    const handleAuth = () => {
+      const token = localStorage.getItem("token");
+      setIsLoggedIn(!!token);
+    };
+    handleAuth();
+  }, []);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const headers = { Authorization: `Bearer ${token}` };
+        const response = await axios.get(`http://localhost:7676/api/auth/reviews/${id}`, { headers, withCredentials: true });
+        if (response.status === 200) {
+          setReviews(response.data);
+        } else {
+          throw new Error('Failed to fetch reviews');
+        }
+      } catch (error) {
+        console.error("Error fetching reviews:", error.message);
+      }
+    };
+    fetchReviews();
+  }, [id]);
+
+  const fetchQuizQuestions = async () => {
+    try {
+      const response = await axios.post(`http://127.0.0.1:5000/questions?name=${encodeURIComponent(moviedetail.title)}`);
+      if (response.status === 200) {
+        setQuizQuestions(response.data);
+        console.log(quizQuestions);
+      } else {
+        throw new Error('Failed to fetch quiz questions');
+      }
+    } catch (error) {
+      console.error("Error fetching quiz questions:", error.message);
+    }
+  };
+
+  return (
+    <>
+      <Link to="/movies" className="fixed z-10 text-4xl text-white bg-red-600 m-3 md:m-5 rounded-full"><HiChevronLeft /></Link>
+      <div className="relative h-auto md:h-[82vh] flex justify-center items-center">
+        <img src={moviedetail.backdrop_path ? `https://image.tmdb.org/t/p/original/${moviedetail.backdrop_path}` : "path/to/default/image.jpg"} alt={moviedetail.title} className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent"></div>
+        <h1 className="text-white text-2xl md:text-6xl font-bold p-10">{moviedetail.title}</h1>
+      </div>
+      <div className="text-center my-5">
+        <p className="text-white font-light md:font-normal">{moviedetail.overview}</p>
+        <div className="flex flex-wrap justify-center gap-2 mt-3">
+          {moviegenres.map(genre => (
+            <span key={genre.id} className="bg-red-700 rounded-full px-4 py-1 text-white text-sm">{genre.name}</span>
+          ))}
+        </div>
+      </div>
+      {isLoggedIn && (
+        <div className="p-5">
+          <textarea className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" placeholder="Click here to write a review..." onClick={fetchQuizQuestions} readOnly={!isLoggedIn}></textarea>
+          {quizQuestions.length > 0 && (
+            <div className="mt-5">
+              {quizQuestions.map((question, index) => (
+                <div key={index} className="p-2 my-2 border rounded">
+                  <p className="font-semibold">{question.question}</p>
+                  {question.options.map((option, idx) => (
+                    <div key={idx}>
+                      <input type="radio" id={option} name={question.question} value={option} />
+                      <label htmlFor={option} className="ml-2">{option}</label>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+};
+
+export default MovieDetails;
+

@@ -1,0 +1,8 @@
+Flask
+pandas
+openai
+scikit-learn
+Flask-CORS
+requests
+torch
+transformers
