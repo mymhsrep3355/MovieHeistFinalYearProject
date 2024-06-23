@@ -4,7 +4,6 @@ export const key = "b93a64480573ce5248c28b200d79d029"; //API KEY
 export const RootURL = "https://api.themoviedb.org/3";
 
 // MOVIES
-const year = 2018;
 const APIendpoints = {
   popular: `${RootURL}/movie/popular?api_key=${key}&include_adult=false`,
   topRated: `${RootURL}/movie/top_rated?api_key=${key}&include_adult=false&language=en-US&page=1`,
