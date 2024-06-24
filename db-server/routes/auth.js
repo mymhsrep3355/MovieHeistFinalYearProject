@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require('nodemailer');
 const { User } = require("../models/User-Model");
 const {Review} = require('../models/Review-Model')
+const {Movie} = require('../models/Movie-Model')
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -50,6 +51,26 @@ router.post("/login", async (req, res) => {
     res.status(200).json({ token, user });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/users", async (req, res) => {
+  try {
+    const users = await User.find({});
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ message: "Something went wrong" });
+  }
+});
+
+router.get("/totalUsers", async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    res.status(200).json({ totalUsers });
+  } catch (error) {
+    console.error("Error fetching total users:", error);
+    res.status(500).json({ message: "Something went wrong" });
   }
 });
 
@@ -161,6 +182,33 @@ router.get('/genres', verifyToken, async (req, res) => {
   }
 });
 
+router.post('/addMovie', async (req, res) => {
+  try {
+      const { name, description, genre, director, releaseDate, rating } = req.body;
+
+      if (!name || !description || !genre || !director || !releaseDate || !rating) {
+          return res.status(400).json({ message: 'All fields are required' });
+      }
+
+      const newMovie = new Movie({
+          name,
+          description,
+          genre,
+          director,
+          releaseDate,
+          rating
+      });
+
+      // Save the new movie to the database
+      const savedMovie = await newMovie.save();
+      res.status(201).json({ message: 'Movie added successfully', movie: savedMovie });
+  } catch (error) {
+      console.error('Error adding movie:', error);
+      res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+
 router.post('/likes', verifyToken, async (req, res) => {
   try {
     const { movieId } = req.body;
@@ -250,6 +298,60 @@ router.get('/reviews/:movie_id', async (req, res) => {
   }
 });
     
+
+router.get("/totalReviews", async (req, res) => {
+  try {
+    const totalReviews = await Review.countDocuments();
+    res.status(200).json({ totalReviews });
+  } catch (error) {
+    console.error("Error fetching total reviews:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+router.get("/topReviewers", async (req, res) => {
+  try {
+    // Aggregate to find users with the most reviews
+    const topReviewers = await Review.aggregate([
+      { $group: { _id: "$userId", reviewCount: { $sum: 1 } } },
+      { $sort: { reviewCount: -1 } },
+      { $limit: 10 }  // Change this number to limit how many top reviewers you want
+    ]);
+
+    if (topReviewers.length === 0) {
+      return res.status(404).json({ message: "No reviewers found" });
+    }
+
+    // Fetch the user details for the top reviewers
+    const topReviewersDetails = await Promise.all(
+      topReviewers.map(async (reviewer) => {
+        const user = await User.findById(reviewer._id).select("username email");
+        if (user) {
+          return {
+            email: user.email,
+            userName: user.userName,
+            reviewCount: reviewer.reviewCount
+          };
+        } else {
+          return null; // Handle case where user is not found
+        }
+      })
+    );
+
+    // Filter out null values (users not found)
+    const filteredReviewersDetails = topReviewersDetails.filter(reviewer => reviewer !== null);
+
+    // Respond with the top reviewers' details
+    res.status(200).json(filteredReviewersDetails);
+  } catch (error) {
+    console.error("Error fetching top reviewers:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+
 
 // to get user reviews
 router.get('/reviews', verifyToken, async (req, res) => {
