@@ -5,15 +5,31 @@ import { Link } from 'react-router-dom';
 import { RootURL, key } from '../utils/FetchMovies';
 import Loader from './Loaders/Loader';
 
+
 const RecommendedMovies = () => {
   const [recommendedMovies, setRecommendedMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [favMovies, setFavMovies] = useState([]);
+  const [userPreferences , setUserPreferences] = useState([])
+  const token = localStorage.getItem('token')
 
   useEffect(() => {
     fetchUserLikedMovies();
-  }, []);
+    fetchUserGenras();
+  }, [recommendedMovies]);
 
+  const fetchUserGenras = async ()=>{
+    try {
+      const usergens = await axios.get('http://localhost:7676/api/auth/genres',{
+        headers:{
+          Authorization:`Bearer ${token}`
+        }
+      })
+      setUserPreferences(usergens.data)
+    } catch (error) {
+      
+    }
+  }
   const fetchUserLikedMovies = async () => {
     try {
       const userToken = localStorage.getItem('token');
@@ -47,23 +63,39 @@ const RecommendedMovies = () => {
     }
   };
 
-  const fetchRecommendedMovies = async (favMovies) => {
+  function getMovieObjects(movies) {
+    const movieObjects = [];
+  
+    for (const movieTitle in movies) {
+      const movie = movies[movieTitle];
+      const movieObject = {
+        title: movie.title,
+        release_date: movie.release_date,
+        overview: movie.overview,
+        poster_path: movie.poster_path,
+        vote_average: movie.vote_average
+      };
+      movieObjects.push(movieObject);
+    }
+  
+    return movieObjects;
+  }
+  
+  const fetchRecommendedMovies = async () => {
     try {
       const response = await axios.post('http://localhost:5000/recommend_movies', {
-        user_movies: favMovies.map(movie => movie.title) // Example user_movies input
+       user_movies: favMovies.map(movie => movie.title), 
+       user_genres : userPreferences
       });
-
-      const recommendedMoviesData = response.data.recommended_movies;
-      const moviesArray = Object.values(recommendedMoviesData)[0].results;
-
-      setRecommendedMovies(moviesArray);
+      // console.log(response.data.recommended_movies);
+      setRecommendedMovies( getMovieObjects( response.data.recommended_movies));
       setLoading(false);
     } catch (error) {
       console.error('Error fetching recommended movies:', error);
       setLoading(false);
     }
   };
-
+console.log(recommendedMovies);
   return (
     <div className="w-full bg-[#000000] md:p-10 mb-20 md:mb-0">
       <Link
@@ -75,13 +107,12 @@ const RecommendedMovies = () => {
       <h2 className="text-center font-bold text-white text-2xl mb-6 mt-12">Recommended Movies</h2>
       <div className="flex flex-wrap justify-center gap-4">
         {loading ? (
-
-          <Loader></Loader>
-        ) : recommendedMovies.length === 0 ? (
+          <Loader /> // Replace with your Loader component
+        ) : recommendedMovies?.length === 0 ? (
           <p className="text-xl text-white">No recommendations found.</p>
         ) : (
           recommendedMovies.map(movie => (
-            <div key={movie.id} className="inline-block overflow-hidden cursor-pointer m-3 rounded-lg relative w-[150px] sm:w-[200px] md:w-[250px] lg:w-[280px]">
+            <div key={movie.title} className="inline-block overflow-hidden cursor-pointer m-3 rounded-lg relative w-[150px] sm:w-[200px] md:w-[250px] lg:w-[280px]">
               <div className="relative">
                 <img
                   className="img object-cover"

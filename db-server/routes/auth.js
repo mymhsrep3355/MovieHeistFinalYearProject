@@ -125,6 +125,42 @@ const verifyToken = (req, res, next) => {
   });
 };
 
+router.get('/genres', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const fetchGenres = await fetch('https://api.themoviedb.org/3/genre/movie/list?api_key=b93a64480573ce5248c28b200d79d029&language=en-US', {
+      method: 'GET',
+    });
+
+    if (!fetchGenres.ok) {
+      return res.status(fetchGenres.status).json({ error: "Failed to fetch genres" });
+    }
+
+    const genresData = await fetchGenres.json();
+    const genres = genresData.genres || [];
+
+    // Get user's preferred genre IDs
+    const userGenres = user.preferences || [];
+
+    // Map genre IDs to their names
+    const userPreferredGenres = userGenres.map(genreId => {
+      const genre = genres.find(g => g.id === genreId);
+      return genre ? genre.name : null;
+    }).filter(genreName => genreName !== null);
+
+    return res.status(200).json(userPreferredGenres);
+
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 router.post('/likes', verifyToken, async (req, res) => {
   try {
     const { movieId } = req.body;

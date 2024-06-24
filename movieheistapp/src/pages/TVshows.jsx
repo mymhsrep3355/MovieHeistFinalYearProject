@@ -17,17 +17,7 @@ const TVshows = () => {
       <TVrows title="Trending" url={endpoints.TVtrending}></TVrows>
       <TVrows title="Horror" url={endpoints.TVhorror}></TVrows>
       <TVrows title="Documentaries" url={endpoints.TVdocumentaries}></TVrows>
-      <TVrows title="YEARS"></TVrows>
-      <TVrows title="2010" url={endpoints.TV2010}></TVrows>
-      <TVrows title="2011" url={endpoints.TV2011}></TVrows>
-      <TVrows title="2012" url={endpoints.TV2012}></TVrows>
-      <TVrows title="2013" url={endpoints.TV2013}></TVrows>
-      <TVrows title="2014" url={endpoints.TV2014}></TVrows>
-      <TVrows title="2015" url={endpoints.TV2015}></TVrows>
-      <TVrows title="2016" url={endpoints.TV2016}></TVrows>
-      <TVrows title="2017" url={endpoints.TV2017}></TVrows>
-      <TVrows title="2018" url={endpoints.TV2018}></TVrows>
-      <TVrows title="2019" url={endpoints.TV2019}></TVrows>
+  
     </div>
   );
 };

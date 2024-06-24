@@ -14,6 +14,7 @@ const MoviePlayer = () => {
     const data = await fetch(
       `${RootURL}/movie/${id}?api_key=${key}&language=en-US`
     );
+ 
     const movie = await data.json();
     setMovieInfo(movie);
   };
@@ -21,7 +22,7 @@ const MoviePlayer = () => {
   useEffect(() => {
     getMovieInfo();
     setHeader("Movie Player");
-    setHeader(movie.title);
+    // setHeader(movieInfo.id);
   }, []);
 
 
